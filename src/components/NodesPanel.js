@@ -1,12 +1,10 @@
 "use client";
 
 export default function NodesPanel() {
-  const onDragStart = (event, nodeType) => {
-    event.dataTransfer.setData(
-      "application/reactflow",
-      nodeType
-    );
-    event.dataTransfer.effectAllowed = "move";
+
+  const handleDragStart = (e, type) => {
+    e.dataTransfer.setData("application/reactflow", type);
+    e.dataTransfer.effectAllowed = "move";
   };
 
   return (
@@ -18,13 +16,12 @@ export default function NodesPanel() {
 
       <div
         className="p-3 border rounded-md cursor-move bg-gray-100 text-gray-800 font-medium hover:bg-gray-200 transition"
-        onDragStart={(event) =>
-          onDragStart(event, "textNode")
-        }
         draggable
+        onDragStart={(e) => handleDragStart(e, "textNode")}
       >
         Message Node
       </div>
+
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import "reactflow/dist/style.css";
+import { useCallback, useState } from "react";
 import ReactFlow, {
   addEdge,
   useNodesState,
@@ -9,80 +9,90 @@ import ReactFlow, {
   Controls,
 } from "reactflow";
 
+import "reactflow/dist/style.css";
+
 import TextNode from "./nodes/TextNode";
 import NodesPanel from "./NodesPanel";
 import SettingsPanel from "./SettingsPanel";
 import SaveButton from "./SaveButton";
 
-import { useCallback, useState } from "react";
-
+// Register custom node types
 const nodeTypes = {
   textNode: TextNode,
 };
 
-let id = 0;
-const getId = () => `node_${id++}`;
+// Simple incremental id generator
+let nodeCounter = 0;
+const generateId = () => `node_${nodeCounter++}`;
 
 export default function FlowBuilder() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  // 🔥 Store ONLY selected node ID
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  // Store only the id of selected node
+  const [activeNodeId, setActiveNodeId] = useState(null);
 
-  // Allow only one outgoing edge per source
-  const onConnect = useCallback(
-    (params) => {
-      const alreadyConnected = edges.find(
-        (e) => e.source === params.source
+  /**
+   * Allow only one outgoing connection from a source node
+   */
+  const handleConnect = useCallback(
+    (connection) => {
+      const hasOutgoing = edges.some(
+        (edge) => edge.source === connection.source
       );
 
-      if (alreadyConnected) return;
+      if (hasOutgoing) return;
 
-      setEdges((eds) => addEdge(params, eds));
+      setEdges((prevEdges) => addEdge(connection, prevEdges));
     },
     [edges]
   );
 
-  const onDrop = (event) => {
-    event.preventDefault();
+  /**
+   * Handle node drop from the side panel
+   */
+  const handleDrop = (e) => {
+    e.preventDefault();
 
-    const type = event.dataTransfer.getData(
+    const nodeType = e.dataTransfer.getData(
       "application/reactflow"
     );
 
-    const position = {
-      x: event.clientX - 250,
-      y: event.clientY - 100,
-    };
-
     const newNode = {
-      id: getId(),
-      type,
-      position,
+      id: generateId(),
+      type: nodeType,
+      position: {
+        x: e.clientX - 250,
+        y: e.clientY - 100,
+      },
       data: { text: "New Message" },
     };
 
-    setNodes((nds) => nds.concat(newNode));
+    setNodes((prev) => [...prev, newNode]);
   };
 
-  // 🔥 Proper update function
-  const updateNodeText = (id, text) => {
-    setNodes((nds) =>
-      nds.map((node) =>
+  /**
+   * Update text of a specific node
+   */
+  const handleTextUpdate = (id, value) => {
+    setNodes((prevNodes) =>
+      prevNodes.map((node) =>
         node.id === id
-          ? { ...node, data: { ...node.data, text } }
+          ? { ...node, data: { ...node.data, text: value } }
           : node
       )
     );
   };
 
-  // 🔥 Derive selected node from nodes state
-  const selectedNode = nodes.find(
-    (node) => node.id === selectedNodeId
+  // Get currently selected node from state
+  const activeNode = nodes.find(
+    (node) => node.id === activeNodeId
   );
 
-  // VALIDATION AS PER TASK
+  /**
+   * Validation:
+   * Only one node can exist without incoming edges
+   */
   const validateFlow = () => {
     if (nodes.length <= 1) return true;
 
@@ -97,6 +107,7 @@ export default function FlowBuilder() {
   return (
     <div className="flex h-screen">
       <div className="flex-1 relative">
+
         <SaveButton
           nodes={nodes}
           edges={edges}
@@ -109,25 +120,25 @@ export default function FlowBuilder() {
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onDrop={onDrop}
+          onConnect={handleConnect}
+          onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
           onNodeClick={(e, node) =>
-            setSelectedNodeId(node.id)
+            setActiveNodeId(node.id)
           }
-          onPaneClick={() => setSelectedNodeId(null)}   
-  
+          onPaneClick={() => setActiveNodeId(null)}
           fitView
         >
           <Background />
           <Controls />
         </ReactFlow>
+
       </div>
 
-      {selectedNode ? (
+      {activeNode ? (
         <SettingsPanel
-          selectedNode={selectedNode}
-          updateNodeText={updateNodeText}
+          selectedNode={activeNode}
+          updateNodeText={handleTextUpdate}
         />
       ) : (
         <NodesPanel />
